@@ -1,0 +1,1 @@
+{"background":{"service_worker":"background.js"},"description":"Let your coding agent read pages through YOUR real, logged-in browser. Local MCP bridge over Native Messaging.","host_permissions":["<all_urls>"],"icons":{"128":"icon128.png"},"manifest_version":3,"name":"Browser Buddy","permissions":["tabs","scripting","nativeMessaging"],"version":"0.1.0"}

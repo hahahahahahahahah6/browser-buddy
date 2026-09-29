@@ -1,0 +1,1 @@
+{"allowed_origins":["chrome-extension://__EXTENSION_ID__/"],"description":"Browser Buddy native messaging host","name":"com.browserbuddy.host","path":"__HOST_PATH__","type":"stdio"}

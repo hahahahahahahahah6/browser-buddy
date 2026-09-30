@@ -1,3 +1,14 @@
+Metadata-Version: 2.4
+Name: browser-buddy-mcp
+Version: 0.1.1
+Summary: MCP server that lets coding agents read pages through your real, logged-in Chrome (companion to the browser-buddy Chrome extension)
+Author: hao li
+License: MIT
+Project-URL: Homepage, https://github.com/hahahahahahahahah6/browser-buddy
+Keywords: mcp,claude-code,chrome-extension,browser-automation,ai-agents
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+
 # browser-buddy-mcp
 
 The MCP server half of [browser-buddy](https://github.com/hahahahahahahahah6/browser-buddy):

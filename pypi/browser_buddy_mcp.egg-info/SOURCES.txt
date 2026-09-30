@@ -1,0 +1,8 @@
+README_PYPI.md
+browser_buddy_mcp.py
+pyproject.toml
+browser_buddy_mcp.egg-info/PKG-INFO
+browser_buddy_mcp.egg-info/SOURCES.txt
+browser_buddy_mcp.egg-info/dependency_links.txt
+browser_buddy_mcp.egg-info/entry_points.txt
+browser_buddy_mcp.egg-info/top_level.txt

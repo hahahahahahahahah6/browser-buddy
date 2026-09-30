@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "browser-buddy-mcp"
+version = "0.1.0"
+description = "MCP server that lets coding agents read pages through your real, logged-in Chrome (companion to the browser-buddy Chrome extension)"
+readme = "README_PYPI.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [{name = "hao li"}]
+keywords = ["mcp", "claude-code", "chrome-extension", "browser-automation", "ai-agents"]
+
+[project.urls]
+Homepage = "https://github.com/hahahahahahahahah6/browser-buddy"
+
+[project.scripts]
+browser-buddy-mcp = "browser_buddy_mcp:main"
+
+[tool.setuptools]
+py-modules = ["browser_buddy_mcp"]

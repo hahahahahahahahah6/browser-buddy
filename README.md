@@ -1,5 +1,9 @@
 # Browser Buddy
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest%20V3-blue.svg)](extension/manifest.json)
+[![No dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](pyproject.toml)
+
 **Let your coding agent read pages through YOUR real, logged-in browser.**
 
 Claude Code's WebFetch gets 403'd on most sites. Ask it to pull up a doc, check a Reddit thread, or look at a GitHub issue, and it comes back with a 403 — because server-side fetchers don't have your cookies, your logins, or your sessions.

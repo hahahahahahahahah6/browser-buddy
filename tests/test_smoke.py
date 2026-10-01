@@ -319,5 +319,42 @@ class TestDomainAllowlist(unittest.TestCase):
         self.assertEqual(called, [])
 
 
+    def test_empty_allowlist_warns_in_tool_result(self):
+        self._set_domains([])
+        called = []
+        orig = mcp_mod.call_host
+        mcp_mod.call_host = lambda *a, **k: called.append(a) or {
+            "ok": True, "url": "https://anything.example/",
+            "title": "t", "text": "page text"}
+        try:
+            resp = mcp_mod.handle_tools_call(
+                {"name": "open_and_read_url",
+                 "arguments": {"url": "https://anything.example/"}})
+        finally:
+            mcp_mod.call_host = orig
+        self.assertFalse(resp["isError"])
+        text = resp["content"][0]["text"]
+        self.assertTrue(
+            text.startswith("WARNING: allowed_domains is empty"),
+            text[:120])
+        self.assertIn("page text", text)
+
+    def test_nonempty_allowlist_no_warning(self):
+        self._set_domains(["example.com"])
+        orig = mcp_mod.call_host
+        mcp_mod.call_host = lambda *a, **k: {
+            "ok": True, "url": "https://example.com/",
+            "title": "t", "text": "page text"}
+        try:
+            resp = mcp_mod.handle_tools_call(
+                {"name": "open_and_read_url",
+                 "arguments": {"url": "https://example.com/"}})
+        finally:
+            mcp_mod.call_host = orig
+        self.assertFalse(resp["isError"])
+        self.assertFalse(
+            resp["content"][0]["text"].startswith("WARNING"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

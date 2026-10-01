@@ -63,6 +63,14 @@ def load_config():
 _allowed_warned = False
 
 
+def empty_allowlist_warning():
+    return (
+        "WARNING: allowed_domains is empty — all domains are allowed. "
+        "Set allowed_domains in %s to restrict which sites this tool "
+        "can open in your browser.\n\n" % config_path()
+    )
+
+
 def url_allowed(url):
     """Domain allowlist for open_and_read_url.
 
@@ -180,10 +188,12 @@ def handle_tools_call(params):
     args = (params or {}).get("arguments") or {}
     if name == "read_active_tab":
         resp = call_host("read_active_tab")
+        warn_empty_allowlist = False
     elif name == "open_and_read_url":
         url = args.get("url", "")
         if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
             return tool_result_text("error: 'url' must be an http(s) URL", is_error=True)
+        warn_empty_allowlist = not (load_config().get("allowed_domains") or [])
         if not url_allowed(url):
             return tool_result_text(
                 "error: domain not in allowed_domains (see %s). "
@@ -194,7 +204,12 @@ def handle_tools_call(params):
         return tool_result_text("error: unknown tool '%s'" % name, is_error=True)
     if not resp.get("ok"):
         return tool_result_text("error: %s" % resp.get("error", "unknown"), is_error=True)
-    return tool_result_text(format_page_result(resp))
+    text = format_page_result(resp)
+    if warn_empty_allowlist:
+        # The allowlist defaults to open; make that visible to the agent
+        # in the tool result itself (stderr is invisible to it).
+        text = empty_allowlist_warning() + text
+    return tool_result_text(text)
 
 
 def handle_rpc(request):

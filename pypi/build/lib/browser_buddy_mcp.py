@@ -18,6 +18,7 @@ import os
 import socket
 import sys
 import tempfile
+import urllib.parse
 
 PROTOCOL_VERSION = "2024-11-05"
 SERVER_NAME = "browser-buddy"
@@ -26,8 +27,74 @@ DEFAULT_TIMEOUT_SECS = 75
 
 
 def socket_path():
-    """Must match host/browser_buddy_host.py."""
-    return os.path.join(tempfile.gettempdir(), "browser-buddy", "browser-buddy.sock")
+    """Must match host/browser_buddy_host.py.
+
+    Uses $XDG_RUNTIME_DIR when set (per-user, already private on Linux);
+    falls back to the shared temp dir.
+    """
+    base = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+    return os.path.join(base, "browser-buddy", "browser-buddy.sock")
+
+
+def config_path():
+    return os.path.join(os.path.expanduser("~"), ".config",
+                        "browser-buddy", "config.json")
+
+
+_config_cache = None
+
+
+def load_config():
+    """Read ~/.config/browser-buddy/config.json. Never raises."""
+    global _config_cache
+    if _config_cache is None:
+        cfg = {}
+        try:
+            with open(config_path(), "r", encoding="utf-8") as fh:
+                loaded = json.load(fh)
+            if isinstance(loaded, dict):
+                cfg = loaded
+        except (OSError, ValueError):
+            pass
+        _config_cache = cfg
+    return _config_cache
+
+
+_allowed_warned = False
+
+
+def empty_allowlist_warning():
+    return (
+        "WARNING: allowed_domains is empty — all domains are allowed. "
+        "Set allowed_domains in %s to restrict which sites this tool "
+        "can open in your browser.\n\n" % config_path()
+    )
+
+
+def url_allowed(url):
+    """Domain allowlist for open_and_read_url.
+
+    `allowed_domains` in the config lists domains the agent may open
+    (entries match the domain itself and its subdomains). When the list is
+    empty or missing, everything is allowed but a one-time warning is
+    logged: without a list, a prompt-injected page could steer the agent
+    to open arbitrary URLs in your logged-in browser.
+    """
+    global _allowed_warned
+    allowed = load_config().get("allowed_domains") or []
+    if not allowed:
+        if not _allowed_warned:
+            _allowed_warned = True
+            log("warning: no allowed_domains set in %s; open_and_read_url "
+                "accepts any URL. Set allowed_domains to restrict which "
+                "sites the agent may open in your browser." % config_path())
+        return True
+    try:
+        host = (urllib.parse.urlsplit(url).hostname or "").lower()
+    except ValueError:
+        return False
+    return any(host == d.lower() or host.endswith("." + d.lower())
+               for d in allowed if isinstance(d, str) and d)
 
 
 def log(msg):
@@ -121,16 +188,28 @@ def handle_tools_call(params):
     args = (params or {}).get("arguments") or {}
     if name == "read_active_tab":
         resp = call_host("read_active_tab")
+        warn_empty_allowlist = False
     elif name == "open_and_read_url":
         url = args.get("url", "")
         if not isinstance(url, str) or not url.lower().startswith(("http://", "https://")):
             return tool_result_text("error: 'url' must be an http(s) URL", is_error=True)
+        warn_empty_allowlist = not (load_config().get("allowed_domains") or [])
+        if not url_allowed(url):
+            return tool_result_text(
+                "error: domain not in allowed_domains (see %s). "
+                "Refusing to open this URL in your logged-in browser."
+                % config_path(), is_error=True)
         resp = call_host("open_and_read_url", {"url": url})
     else:
         return tool_result_text("error: unknown tool '%s'" % name, is_error=True)
     if not resp.get("ok"):
         return tool_result_text("error: %s" % resp.get("error", "unknown"), is_error=True)
-    return tool_result_text(format_page_result(resp))
+    text = format_page_result(resp)
+    if warn_empty_allowlist:
+        # The allowlist defaults to open; make that visible to the agent
+        # in the tool result itself (stderr is invisible to it).
+        text = empty_allowlist_warning() + text
+    return tool_result_text(text)
 
 
 def handle_rpc(request):

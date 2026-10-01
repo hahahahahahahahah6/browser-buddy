@@ -3,3 +3,9 @@ __pycache__/
 dist/
 build/
 *.pyc
+
+# build artifacts (never commit; PyPI release is built from pypi/ source)
+pypi/build/
+pypi/dist/
+pypi/*.egg-info/
+pypi/__pycache__/

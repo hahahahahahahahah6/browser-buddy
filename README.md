@@ -35,7 +35,7 @@ Stdlib only. No dependencies, no cloud, no API keys.
 
 - **Extension** (`extension/`): MV3 service worker. Holds a persistent `chrome.runtime.connectNative` port to the host (auto-reconnects). Executes `read_active_tab` / `open_and_read_url` against your real tabs and posts extracted text back.
 - **Host** (`host/browser_buddy_host.py`): launched by Chrome. Bridges the extension (length-prefixed stdio) and the MCP server (Unix socket at `$TMPDIR/browser-buddy/browser-buddy.sock`). Correlates requests by id, with a 90 s timeout.
-- **MCP server** (`mcp_server/browser_buddy_mcp.py`): hand-rolled JSON-RPC 2.0 over stdio (no `mcp` package). Forwards tool calls to the host; returns page text as MCP `content`.
+- **MCP server** (`pypi/browser_buddy_mcp.py`): hand-rolled JSON-RPC 2.0 over stdio (no `mcp` package). Forwards tool calls to the host; returns page text as MCP `content`.
 
 ## Installation
 
@@ -60,7 +60,7 @@ then open the extension's service worker console — you should see
 ### 3. Add the MCP server to Claude Code
 
 ```bash
-claude mcp add browser-buddy -- python3 /absolute/path/to/mcp_server/browser_buddy_mcp.py
+claude mcp add browser-buddy -- python3 /absolute/path/to/pypi/browser_buddy_mcp.py
 ```
 
 Or in `~/.claude.json` / project `.mcp.json`:
@@ -70,13 +70,15 @@ Or in `~/.claude.json` / project `.mcp.json`:
   "mcpServers": {
     "browser-buddy": {
       "command": "python3",
-      "args": ["/absolute/path/to/browser-buddy/mcp_server/browser_buddy_mcp.py"]
+      "args": ["/absolute/path/to/browser-buddy/pypi/browser_buddy_mcp.py"]
     }
   }
 }
 ```
 
-Requires Python 3.9+. No pip install needed.
+Requires Python 3.9+. No pip install needed — or install the published
+package: `pip install browser-buddy-mcp` (built from `pypi/`; the `browser-buddy-mcp`
+command is the entry point).
 
 ## Demo
 
@@ -107,10 +109,30 @@ page, no dialog spam — just "let the agent see what I see."
 - **One request at a time per socket connection** is fine for an agent; this is not built for concurrent scraping fleets.
 - Long pages are truncated at 60k characters (flagged with `(truncated)`).
 
+## Security: domain allowlist
+
+`open_and_read_url` opens URLs in your **real, logged-in** browser. A
+prompt-injected page could otherwise steer the agent toward your email or
+other sensitive sites. Restrict which domains the agent may open:
+
+```jsonc
+// ~/.config/browser-buddy/config.json
+{
+  "allowed_domains": ["github.com", "stackoverflow.com"]
+}
+```
+
+Entries match the domain and its subdomains (`docs.github.com` is covered by
+`github.com`). When the list is empty (default), any URL is allowed but the
+server logs a warning recommending you set it. URLs outside the list are
+refused before anything is opened. `read_active_tab` is unaffected — it only
+reads the tab *you* already opened.
+
 ## Development
 
 ```bash
-python3 tests/test_smoke.py   # 17 tests: framing, bridge routing, MCP handlers
+python3 tests/test_smoke.py   # 25 tests: framing, bridge routing, MCP handlers,
+                              # socket dir, domain allowlist
 node --check extension/background.js
 ```
 

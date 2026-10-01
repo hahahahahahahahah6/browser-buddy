@@ -34,10 +34,19 @@ REQUEST_TIMEOUT_SECS = 90
 def socket_path():
     """Location of the Unix socket the MCP server connects to.
 
-    NOTE: keep in sync with mcp_server/browser_buddy_mcp.py.
+    NOTE: keep in sync with pypi/browser_buddy_mcp.py (socket_path).
+
+    Uses $XDG_RUNTIME_DIR when set (per-user, already private on Linux);
+    falls back to the shared temp dir. The directory is created with
+    mode 0700 so other local users cannot connect to or hijack it.
     """
-    d = os.path.join(tempfile.gettempdir(), "browser-buddy")
+    base = os.environ.get("XDG_RUNTIME_DIR") or tempfile.gettempdir()
+    d = os.path.join(base, "browser-buddy")
     os.makedirs(d, exist_ok=True)
+    try:
+        os.chmod(d, 0o700)
+    except OSError:
+        pass
     return os.path.join(d, "browser-buddy.sock")
 
 

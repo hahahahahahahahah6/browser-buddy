@@ -32,7 +32,7 @@ def load_module(name, path):
 host_mod = load_module("browser_buddy_host",
                        os.path.join(REPO_ROOT, "host", "browser_buddy_host.py"))
 mcp_mod = load_module("browser_buddy_mcp",
-                      os.path.join(REPO_ROOT, "mcp_server", "browser_buddy_mcp.py"))
+                      os.path.join(REPO_ROOT, "pypi", "browser_buddy_mcp.py"))
 
 
 class TestNativeFraming(unittest.TestCase):
@@ -230,6 +230,93 @@ class TestMcpServer(unittest.TestCase):
         self.assertIn("protocolVersion", lines[0]["result"])
         self.assertIn("(truncated)", lines[1]["result"]["content"][0]["text"])
         self.assertEqual(lines[2]["error"]["code"], -32700)
+
+
+class TestSocketPath(unittest.TestCase):
+    def test_xdg_runtime_dir_preferred(self):
+        orig = mcp_mod.socket_path
+        try:
+            os.environ["XDG_RUNTIME_DIR"] = "/tmp/fake-xdg-12345"
+            self.assertEqual(
+                mcp_mod.socket_path(),
+                "/tmp/fake-xdg-12345/browser-buddy/browser-buddy.sock")
+            self.assertEqual(
+                host_mod.socket_path(),
+                "/tmp/fake-xdg-12345/browser-buddy/browser-buddy.sock")
+        finally:
+            del os.environ["XDG_RUNTIME_DIR"]
+
+    def test_falls_back_to_tempdir(self):
+        old = os.environ.pop("XDG_RUNTIME_DIR", None)
+        try:
+            import tempfile as tf
+            self.assertEqual(
+                mcp_mod.socket_path(),
+                os.path.join(tf.gettempdir(), "browser-buddy",
+                             "browser-buddy.sock"))
+        finally:
+            if old is not None:
+                os.environ["XDG_RUNTIME_DIR"] = old
+
+    def test_host_dir_is_private(self):
+        tmp = tempfile.mkdtemp()
+        os.environ["XDG_RUNTIME_DIR"] = tmp
+        try:
+            d = os.path.join(tmp, "browser-buddy")
+            if os.path.isdir(d):
+                import shutil
+                shutil.rmtree(d)
+            host_mod.socket_path()
+            mode = oct(os.stat(d).st_mode & 0o777)
+            self.assertEqual(mode, "0o700", mode)
+        finally:
+            del os.environ["XDG_RUNTIME_DIR"]
+
+
+class TestDomainAllowlist(unittest.TestCase):
+    def setUp(self):
+        mcp_mod._config_cache = None
+        mcp_mod._allowed_warned = False
+
+    def tearDown(self):
+        mcp_mod._config_cache = None
+        mcp_mod._allowed_warned = False
+
+    def _set_domains(self, domains):
+        mcp_mod._config_cache = {"allowed_domains": domains}
+
+    def test_empty_list_allows_all(self):
+        self._set_domains([])
+        self.assertTrue(mcp_mod.url_allowed("https://evil.example/x"))
+
+    def test_listed_domain_allowed(self):
+        self._set_domains(["example.com"])
+        self.assertTrue(mcp_mod.url_allowed("https://example.com/page"))
+
+    def test_subdomain_allowed(self):
+        self._set_domains(["example.com"])
+        self.assertTrue(mcp_mod.url_allowed("https://docs.example.com/"))
+
+    def test_unlisted_domain_blocked(self):
+        self._set_domains(["example.com"])
+        self.assertFalse(mcp_mod.url_allowed("https://evil.com/"))
+        # lookalike: notexample.com must not match example.com
+        self.assertFalse(mcp_mod.url_allowed("https://notexample.com/"))
+
+    def test_blocked_url_never_reaches_host(self):
+        self._set_domains(["example.com"])
+        called = []
+        orig = mcp_mod.call_host
+        mcp_mod.call_host = lambda *a, **k: called.append(a) or {"ok": True}
+        try:
+            resp = mcp_mod.handle_tools_call(
+                {"name": "open_and_read_url",
+                 "arguments": {"url": "https://evil.com/"}})
+        finally:
+            mcp_mod.call_host = orig
+        self.assertTrue(resp["isError"])
+        self.assertIn("allowed_domains", resp["content"][0]["text"])
+        self.assertEqual(called, [])
 
 
 if __name__ == "__main__":

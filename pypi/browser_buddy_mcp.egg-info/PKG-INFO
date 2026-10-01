@@ -1,4 +1,4 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: browser-buddy-mcp
 Version: 0.1.1
 Summary: MCP server that lets coding agents read pages through your real, logged-in Chrome (companion to the browser-buddy Chrome extension)

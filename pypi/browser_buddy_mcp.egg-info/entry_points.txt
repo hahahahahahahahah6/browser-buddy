@@ -1,2 +1,0 @@
-[console_scripts]
-browser-buddy-mcp = browser_buddy_mcp:main
